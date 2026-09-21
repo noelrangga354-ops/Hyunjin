@@ -57,7 +57,7 @@ end
 local MenuIcon
 if ModernV2 and ModernV2.CreateMenuIcon then
     MenuIcon = ModernV2:CreateMenuIcon({
-        Image = "rbxassetid://80891639562743",
+        Image = "rbxassetid://101632471332808",
         Size = 48,
         IconColor = Color3.fromRGB(255, 255, 255),
         BGColor = Color3.fromRGB(20, 22, 27),
@@ -77,7 +77,7 @@ if ModernV2 then
         Uitransparent = 0.15,
         Size = UDim2.fromOffset(500, 320),
         Color = Color3.fromRGB(255, 0, 0),
-        Image = "86279908104891",
+        Image = "101632471332808",
         ShowUser = true,
         Search = true,
         ConfigEnabled = true,
@@ -87,13 +87,13 @@ if ModernV2 then
         Keybind = "RightControl",
         Config = {
             ConfigFolder = "HyunjinHubViolenceDistrict",
-            AutoSaveFile = "KYS_VD",
+            AutoSaveFile = "Hyunjin_VD",
             AutoSave = false,
             AutoLoad = false,
             Overwrite = true,
             Format = "JSON",
             ShowAutoSaveToggle = true,
-            TextGradient = true,
+            TextGradient = false,
         }
     })
 
@@ -111,7 +111,7 @@ if ModernV2 then
         Name = "Dashboard",
         Icon = "lucide:layout-dashboard",
         Content = "HyunjinHub crack Violence District Script",
-        DiscordInvite = "",
+        DiscordInvite = "https://discord.gg/39WNwMQaN",
           SupportedExecutors = { "Delta", "Synapse X", "Krnl", "Codex", "Arceus X" },
           UnsupportedExecutors = { "Roblox Studio" },
           Segments = {
@@ -228,7 +228,7 @@ end
 local MobileESP = {}
 
 -- =====================================================
--- [BOLONG-HUB] WINDOW ESP SYSTEM (BoxHandleAdornment)
+-- WINDOW ESP SYSTEM (BoxHandleAdornment)
 -- =====================================================
 getgenv().KYS_WindowESPObjects = {}   -- [BasePart] = BoxHandleAdornment
 
@@ -243,7 +243,7 @@ function KYS_CreateWindowAdornment(part)
     adorn.Name           = "KYS_WindowESP_Box"
     adorn.Adornee        = part
     adorn.Color3         = color
-    adorn.Transparency   = 0.3
+    adorn.Transparency   = 0.5
     adorn.Size           = part.Size
     adorn.AlwaysOnTop    = true
     adorn.ZIndex         = 10
@@ -3384,7 +3384,7 @@ local KYS_HideSurvivorIconState = {
     Originals = {},
 }
 
-local KYS_HideSurvivorIconImage = "rbxassetid://80891639562743"
+local KYS_HideSurvivorIconImage = "rbxassetid://101632471332808"
 local KYS_HideSurvivorIconText = "NxH"
 
 local function KYS_GetSurvivorSlots()
@@ -4865,7 +4865,7 @@ function GB_CreateButton()
     GenBypass.Button = Instance.new("ImageButton")
     GenBypass.Button.Name = "BypassGenButton"
     GenBypass.Button.Size = UDim2.new(0, 60, 0, 60)
-    GenBypass.Button.Position = UDim2.new(0.88, 0, 0.55, 0)
+    GenBypass.Button.Position = UDim2.new(0.90, 0, 0.90, 0)
     GenBypass.Button.AnchorPoint = Vector2.new(0.5, 0.5)
     GenBypass.Button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     GenBypass.Button.BackgroundTransparency = 0.15
@@ -4984,9 +4984,9 @@ local AutoGenData = {
     Enabled = false,
     UI = nil,
     Button = nil,
-    Dragging = false,
-    DragLocked = false,
-    DragStart = nil,
+    Dragging = true,
+    DragLocked = true,
+    DragStart = true,
     DragStartPos = nil,
 }
 
@@ -4995,9 +4995,9 @@ function VD_UpdateAutoGenButton()
     local lbl = AutoGenData.Button:FindFirstChildOfClass("TextLabel")
     if lbl then
         if AutoGenData.Enabled then
-            lbl.Text = "BYPASS\nGEN: ON"
+            lbl.Text = "BYPASS"
         else
-            lbl.Text = "BYPASS\nGEN: OFF"
+            lbl.Text = "BYPASS"
         end
     end
 end
@@ -5022,7 +5022,7 @@ function VD_CreateAutoGenButton()
     local btn = Instance.new("ImageButton")
     btn.Name = "AutoGenButton"
     btn.Size = UDim2.new(0, 60, 0, 60)
-    btn.Position = UDim2.new(0.88, 0, 0.65, 0)
+    btn.Position = UDim2.new(0.90, 0, 0.50, 0)
     btn.AnchorPoint = Vector2.new(0.5, 0.5)
     btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     btn.BackgroundTransparency = 0.15
@@ -5040,7 +5040,7 @@ function VD_CreateAutoGenButton()
     local lbl = Instance.new("TextLabel", btn)
     lbl.Size = UDim2.new(1, 0, 1, 0)
     lbl.BackgroundTransparency = 1
-    lbl.Text = "BYPASS\nGEN"
+    lbl.Text = "BYPASS"
     lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
     lbl.TextScaled = true
     lbl.Font = Enum.Font.GothamBlack
@@ -7660,7 +7660,7 @@ do -- Generator Tab
     end })
     genAuto:AddToggle({
     Default = false,
-    Name = "Bypass Generator (Auto Repair)",
+    Name = "Bypass Generator",
     Locked = false,
     TextLocked = "Premium Required",
     Flag = "Bypass Generator",
@@ -7675,7 +7675,7 @@ do -- Generator Tab
         Name = "Skillcheck Mode",
         Flag = "Skillcheck Mode",
         Values = { "Normal", "Perfect", "Instant" },
-        Default = "Normal",
+        Default = "Instant",
         DisabledOptions = false and { "Instant" } or {},
         Multi = false,
         Callback = function(option)
@@ -7684,7 +7684,7 @@ do -- Generator Tab
                 pcall(VD_Notify, "Premium Required ✨", "Opsi Instant hanya untuk pengguna Key Premium!", 5)
                 return
             end
-            VD.AutoSkillcheckMode = option or "Normal"
+            VD.AutoSkillcheckMode = option or "Instant"
             if VD.AutoSkillcheckMode ~= "Instant" and AutoSkill.InstantRotationConnection then
                 AutoSkill.InstantRotationConnection:Disconnect()
                 AutoSkill.InstantRotationConnection = nil
