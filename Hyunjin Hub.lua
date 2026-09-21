@@ -37,7 +37,7 @@ pcall(function()
 end)
 
 if KysUI_Color == "Default" then
-    KysUI_Color = "Red"
+    KysUI_Color = "white"
 end
 
 -- =====================================================
@@ -46,8 +46,8 @@ if ModernV2 then
     pcall(function()
         ModernV2:AddTheme({
             Name = "Lumi red",
-            Accent = Color3.fromRGB(255, 0, 0),
-            Outline = Color3.fromRGB(255, 0, 0),
+            Accent = Color3.fromRGB(255, 255, 255),
+            Outline = Color3.fromRGB(255, 255, 255),
             Text = Color3.fromRGB(255, 255, 255),
             PlaceholderText = Color3.fromRGB(200, 200, 200)
         })
@@ -58,10 +58,10 @@ local MenuIcon
 if ModernV2 and ModernV2.CreateMenuIcon then
     MenuIcon = ModernV2:CreateMenuIcon({
         Image = "rbxassetid://101632471332808",
-        Size = 48,
+        Size = 34,
         IconColor = Color3.fromRGB(255, 255, 255),
         BGColor = Color3.fromRGB(20, 22, 27),
-        StrokeColor = Color3.fromRGB(255, 0, 0),
+        StrokeColor = Color3.fromRGB(255, 255, 255),
         StrokeThick = 1.5,
         Draggable = true,
     })
@@ -76,7 +76,7 @@ if ModernV2 then
         Content = "Violence District",
         Uitransparent = 0.15,
         Size = UDim2.fromOffset(500, 320),
-        Color = Color3.fromRGB(255, 0, 0),
+        Color = Color3.fromRGB(255, 255, 255),
         Image = "101632471332808",
         ShowUser = true,
         Search = true,
