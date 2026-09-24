@@ -428,7 +428,7 @@ getgenv().VD = getgenv().VD or {
     SPEED_Method          = "Attribute",
     -- Visual extras
     ESP_WindowEnabled     = false,
-    ESP_WindowColor       = Color3.fromRGB(255, 255, 255),
+    ESP_WindowColor       = Color3.fromRGB(255, 140, 0),
     NO_Fog                = false,
     NoCutscene            = false,
     CAM_FOVEnabled        = false,
@@ -1475,7 +1475,7 @@ do
         GeneratorColor = Color3.fromRGB(0, 170, 255),
         HookColor = Color3.fromRGB(255, 0, 0),
         GateColor = Color3.fromRGB(255, 225, 0),
-        WindowColor = Color3.fromRGB(255, 255, 255),
+        WindowColor = Color3.fromRGB(255, 140, 0),
         PalletColor = Color3.fromRGB(255, 140, 0),
         SCPZombieColor = Color3.fromRGB(128, 0, 128),
     }
@@ -2497,22 +2497,394 @@ do
     end,
 })
 
-worldSection:AddColorPicker({
-    Name = "Window Color",
-    Flag = "KYS Window Color",
-    Default = Color3.fromRGB(255, 255, 255),
-    Callback = function(color)
-        VD.ESP_WindowColor = color
-        -- update warna semua adornment yang aktif
-        for _, adorn in pairs(getgenv().KYS_WindowESPObjects) do
-            if adorn and adorn.Parent then
-                pcall(function()
-                    adorn.Color3 = color
-                end)
+
+-- ===== START: PROGRESS GEN & PLAYER ITEMS =====
+-- (di-embed dari v4.lua - Hyunjin GUI)
+
+-- ---------- HELPER: Highlight "Bolong" untuk Generator ----------
+local function ApplyBolongHighlight(targetObj, color)
+    if not targetObj or not targetObj.Parent then return end
+    local hl = targetObj:FindFirstChild("__HyunjinHL__")
+    if not hl then
+        hl = Instance.new("Highlight")
+        hl.Name = "__HyunjinHL__"
+        hl.Adornee = targetObj
+        hl.FillTransparency = 0.8
+        hl.OutlineTransparency = 0.2
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.FillColor = color
+        hl.OutlineColor = color
+        hl.Parent = targetObj
+    else
+        hl.FillColor = color
+        hl.OutlineColor = color
+        if not hl.Enabled then hl.Enabled = true end
+    end
+end
+
+local function RemoveBolongHighlight(targetObj)
+    if not targetObj then return end
+    local hl = targetObj:FindFirstChild("__HyunjinHL__")
+    if hl then hl:Destroy() end
+end
+
+-- ---------- STATE UNTUK GENERATOR ----------
+local GEN_State = {
+    enabled = false,
+    showProgress = true,
+    color = Color3.fromRGB(255, 255, 255),
+    cachedGens = {},
+    genIndices = {},
+    nextGenIndex = 1,
+    completedGens = {},
+}
+
+-- ---------- STATE UNTUK PLAYER ITEMS ----------
+local ITEM_State = {
+    enabled = false,
+    espObjects = {}, -- [player] = {itemBillboard, itemImage}
+}
+
+-- ---------- FUNGSI PROGRESS GENERATOR ----------
+local function UpdateGeneratorProgress(genPart)
+    if not genPart or not genPart.Parent then return true end
+    if GEN_State.completedGens[genPart] then return true end
+
+    local progress = genPart:GetAttribute("RepairProgress")
+        or genPart:GetAttribute("Progress") or 0
+    local isCompleted = (progress >= 100)
+        or (genPart:GetAttribute("Completed") == true)
+        or (genPart:GetAttribute("IsCompleted") == true)
+
+    local progressGui = genPart:FindFirstChild("__HyunjinGenProgress__")
+
+    if isCompleted then
+        if progressGui then progressGui:Destroy() end
+        RemoveBolongHighlight(genPart)
+        GEN_State.completedGens[genPart] = true
+        GEN_State.genIndices[genPart] = nil
+        return true
+    end
+
+    if GEN_State.enabled then
+        ApplyBolongHighlight(genPart, GEN_State.color)
+    else
+        RemoveBolongHighlight(genPart)
+    end
+
+    if GEN_State.showProgress then
+        local genNum = GEN_State.genIndices[genPart] or 1
+        local color1 = math.clamp(progress, 0, 100)
+        local color2 = (color1 < 50)
+            and GEN_State.color:Lerp(Color3.fromRGB(255, 200, 0), color1 / 50)
+            or Color3.fromRGB(255, 200, 0):Lerp(Color3.fromRGB(100, 255, 80), (color1 - 50) / 50)
+        local hexColor = color2:ToHex()
+        local genTitle = string.format("GEN%d", genNum)
+        local pctText = string.format("%d%%", math.floor(progress + 0.5))
+
+        local targetPart = genPart:FindFirstChild("GeneratorBody", true)
+            or genPart:FindFirstChild("defaultMaterial", true)
+            or (genPart:IsA("Model") and genPart.PrimaryPart)
+            or genPart:FindFirstChildWhichIsA("BasePart", true)
+        if not targetPart then return false end
+
+        local textHtml = string.format(
+            "<font size=\"9\" color=\"#F4D03F\">%s</font> <font color=\"#555555\">│</font> <font color=\"#%s\">%s</font>",
+            genTitle, hexColor, pctText
+        )
+
+        if not progressGui then
+            progressGui = Instance.new("BillboardGui")
+            progressGui.Name = "__HyunjinGenProgress__"
+            progressGui.Adornee = targetPart
+            progressGui.AlwaysOnTop = true
+            progressGui.LightInfluence = 0
+            progressGui.ResetOnSpawn = false
+            progressGui.MaxDistance = 260
+            progressGui.Size = UDim2.new(0, 100, 0, 14)
+            progressGui.StudsOffset = Vector3.new(0, (targetPart.Size.Y / 2) + 3.5, 0)
+            progressGui.Parent = genPart
+
+            local lbl = Instance.new("TextLabel")
+            lbl.Name = "Label"
+            lbl.BackgroundTransparency = 1
+            lbl.Size = UDim2.new(1, 0, 1, 0)
+            lbl.Font = Enum.Font.GothamBold
+            lbl.TextSize = 11
+            lbl.RichText = true
+            lbl.Text = textHtml
+            lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+            lbl.TextXAlignment = Enum.TextXAlignment.Center
+            lbl.Parent = progressGui
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Thickness = 0.8
+            stroke.Transparency = 0.4
+            stroke.Color = Color3.new(0, 0, 0)
+            stroke.Parent = lbl
+        else
+            if progressGui.Adornee ~= targetPart then progressGui.Adornee = targetPart end
+            local lbl = progressGui:FindFirstChild("Label")
+            if lbl then lbl.Text = textHtml end
+        end
+    else
+        if progressGui then progressGui:Destroy() end
+    end
+    return false
+end
+
+-- ---------- SCAN GENERATOR DARI MAP ----------
+local function RegisterGenerator(obj)
+    if not obj or not obj.Parent then return end
+    if obj.Name ~= "Generator" then return end
+    if not GEN_State.genIndices[obj] then
+        GEN_State.genIndices[obj] = GEN_State.nextGenIndex
+        GEN_State.nextGenIndex = GEN_State.nextGenIndex + 1
+    end
+    table.insert(GEN_State.cachedGens, obj)
+end
+
+local function UnregisterGenerator(obj)
+    if not obj then return end
+    for i, g in ipairs(GEN_State.cachedGens) do
+        if g == obj then table.remove(GEN_State.cachedGens, i) break end
+    end
+    GEN_State.genIndices[obj] = nil
+    GEN_State.completedGens[obj] = nil
+    RemoveBolongHighlight(obj)
+    local pGui = obj:FindFirstChild("__HyunjinGenProgress__")
+    if pGui then pGui:Destroy() end
+end
+
+-- ---------- ITEM ICONS & HELPERS ----------
+local ItemIcons = {
+    ["Adrenaline Shot"] = "rbxassetid://135388781922226",
+    Bandage = "rbxassetid://97791520639443",
+    Flashlight = "rbxassetid://103299939715311",
+    Gate = "rbxassetid://131249244284700",
+    ["Holy Water"] = "rbxassetid://86130208614143",
+    ["Motion Tracker"] = "rbxassetid://92303584765773",
+    ["Parrying Dagger"] = "rbxassetid://76822757630703",
+    ["Riot Shield"] = "rbxassetid://95718705901699",
+    ["Shadow Clone"] = "rbxassetid://134088840518889",
+    ["Twist of Fate"] = "rbxassetid://98397448432071",
+    ["WaxBound Candle"] = "rbxassetid://110413686590821",
+}
+
+local function getMatchingItemIcon(typeStr)
+    if not typeStr or type(typeStr) ~= "string" then return nil end
+    typeStr = typeStr:match("^%s*(.-)%s*$")
+    if ItemIcons[typeStr] then return ItemIcons[typeStr] end
+    for k, url in pairs(ItemIcons) do
+        if k:lower() == typeStr:lower() then return url end
+    end
+    return nil
+end
+
+-- ---------- FOLDER UNTUK ITEM ESP ----------
+local ItemESPFolder = Instance.new("Folder")
+ItemESPFolder.Name = "__HyunjinItemESP__"
+ItemESPFolder.Parent = workspace
+
+-- ---------- SETUP ITEM BILLBOARD PLAYER ----------
+local function SetupPlayerItemESP(plr)
+    if plr == LocalPlayer then return end
+    if ITEM_State.espObjects[plr] then return end
+
+    local itemBb = Instance.new("BillboardGui")
+    itemBb.Name = "ItemBB_" .. plr.Name
+    itemBb.AlwaysOnTop = true
+    itemBb.Size = UDim2.new(1.5, 0, 1.5, 0)
+    itemBb.StudsOffset = Vector3.new(0, -5, 0)
+    itemBb.MaxDistance = 500
+    itemBb.Parent = ItemESPFolder
+
+    local itemImg = Instance.new("ImageLabel")
+    itemImg.Name = "ItemImage"
+    itemImg.Size = UDim2.new(1, 0, 1, 0)
+    itemImg.BackgroundTransparency = 1
+    itemImg.Visible = false
+    itemImg.Parent = itemBb
+
+    ITEM_State.espObjects[plr] = {
+        itemBillboard = itemBb,
+        itemImage = itemImg,
+    }
+end
+
+local function RemovePlayerItemESP(plr)
+    local obj = ITEM_State.espObjects[plr]
+    if obj then
+        if obj.itemBillboard then obj.itemBillboard:Destroy() end
+        ITEM_State.espObjects[plr] = nil
+    end
+end
+
+-- Daftarkan player yang sudah ada & player baru
+for _, plr in ipairs(Players:GetPlayers()) do
+    if plr ~= LocalPlayer then SetupPlayerItemESP(plr) end
+end
+Players.PlayerAdded:Connect(function(plr)
+    if plr ~= LocalPlayer then SetupPlayerItemESP(plr) end
+end)
+Players.PlayerRemoving:Connect(RemovePlayerItemESP)
+
+-- ---------- SCAN MAP AWAL ----------
+local mapFolder = workspace:FindFirstChild("Map") or workspace:FindFirstChild("WorkspaceMap")
+if mapFolder then
+    for _, desc in ipairs(mapFolder:GetDescendants()) do
+        if desc.Name == "Generator" then RegisterGenerator(desc) end
+    end
+    mapFolder.DescendantAdded:Connect(function(desc)
+        if desc.Name == "Generator" then RegisterGenerator(desc) end
+    end)
+    mapFolder.DescendantRemoving:Connect(function(desc)
+        if desc.Name == "Generator" then UnregisterGenerator(desc) end
+    end)
+end
+
+-- Re-scan kalau Map baru muncul
+workspace.ChildAdded:Connect(function(child)
+    if child.Name == "Map" or child.Name == "WorkspaceMap" then
+        task.wait(1)
+        for _, desc in ipairs(child:GetDescendants()) do
+            if desc.Name == "Generator" then RegisterGenerator(desc) end
+        end
+        child.DescendantAdded:Connect(function(desc)
+            if desc.Name == "Generator" then RegisterGenerator(desc) end
+        end)
+        child.DescendantRemoving:Connect(function(desc)
+            if desc.Name == "Generator" then UnregisterGenerator(desc) end
+        end)
+    end
+end)
+
+-- ---------- LOOP UPDATE GENERATOR & ITEM ----------
+local genTick = 0
+RunService.Heartbeat:Connect(function()
+    -- Progress Generator (update tiap ~0.2s)
+    genTick = genTick + 1
+    if genTick >= 12 then
+        genTick = 0
+        for _, gen in ipairs(GEN_State.cachedGens) do
+            if gen and gen.Parent then
+                UpdateGeneratorProgress(gen)
+            end
+        end
+    end
+
+    -- Player Items (update tiap frame)
+    if ITEM_State.enabled then
+        local myChar = LocalPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+
+        for plr, obj in pairs(ITEM_State.espObjects) do
+            if obj and obj.itemBillboard and obj.itemBillboard.Parent then
+                local char = plr.Character
+                if not char then
+                    obj.itemImage.Visible = false
+                    continue
+                end
+
+                local head = char:FindFirstChild("Head")
+                    or char:FindFirstChild("HumanoidRootPart")
+                if head then
+                    obj.itemBillboard.Adornee = head
+                    obj.itemBillboard.Enabled = true
+                end
+
+                local eqItem = nil
+                local eq1 = char:GetAttribute("EquippedItem")
+                    or char:GetAttribute("Equippedltem")
+                if type(eq1) == "string" then
+                    eqItem = eq1
+                elseif typeof(eq1) == "Instance" then
+                    eqItem = eq1.Name
+                end
+
+                if not eqItem then
+                    local eq2 = plr:GetAttribute("EquippedItem")
+                        or plr:GetAttribute("Equippedltem")
+                    if type(eq2) == "string" then
+                        eqItem = eq2
+                    elseif typeof(eq2) == "Instance" then
+                        eqItem = eq2.Name
+                    end
+                end
+
+                local iconUrl = getMatchingItemIcon(eqItem)
+                if iconUrl then
+                    if obj.itemImage.Image ~= iconUrl then
+                        obj.itemImage.Image = iconUrl
+                    end
+
+                    if myRoot and char:FindFirstChild("HumanoidRootPart") then
+                        local dist = (myRoot.Position - char.HumanoidRootPart.Position).Magnitude
+                        local scale = math.clamp(1.5 + ((dist / 200) * 2), 1.5, 3.5)
+                        obj.itemBillboard.Size = UDim2.new(scale, 0, scale, 0)
+                    end
+                    obj.itemImage.Visible = true
+                else
+                    obj.itemImage.Visible = false
+                end
+            end
+        end
+    else
+        -- Kalau dimatikan, sembunyikan semua item image
+        for _, obj in pairs(ITEM_State.espObjects) do
+            if obj and obj.itemImage and obj.itemImage.Visible then
+                obj.itemImage.Visible = false
+            end
+        end
+    end
+end)
+
+-- ---------- TAMBAH TOGGLE UI KE WORLDSECTION ----------
+worldSection:AddToggle({
+    Name = "Esp Generator (Progress)",
+    Flag = "KYS Esp Generator Progress",
+    Default = false,
+    Callback = function(state)
+        GEN_State.enabled = state
+        if not state then
+            for _, gen in ipairs(GEN_State.cachedGens) do
+                if gen and gen.Parent then
+                    RemoveBolongHighlight(gen)
+                    local pGui = gen:FindFirstChild("__HyunjinGenProgress__")
+                    if pGui then pGui:Destroy() end
+                end
             end
         end
     end,
 })
+
+worldSection:AddToggle({
+    Name = "Show Progress Text",
+    Flag = "KYS Show Gen Progress Text",
+    Default = true,
+    Callback = function(state)
+        GEN_State.showProgress = state
+        if not state then
+            for _, gen in ipairs(GEN_State.cachedGens) do
+                if gen and gen.Parent then
+                    local pGui = gen:FindFirstChild("__HyunjinGenProgress__")
+                    if pGui then pGui:Destroy() end
+                end
+            end
+        end
+    end,
+})
+
+worldSection:AddToggle({
+    Name = "Players Items",
+    Flag = "KYS Players Items",
+    Default = false,
+    Callback = function(state)
+        ITEM_State.enabled = state
+    end,
+})
+
+-- ===== END: PROGRESS GEN & PLAYER ITEMS =====
 
         worldSection:AddToggle({
             Name = "World Nametags",
@@ -2538,7 +2910,15 @@ worldSection:AddColorPicker({
         worldSection:AddColorPicker({ Name = "Generator Color", Flag = "KYS Generator Color", Default = KYS_ESPState.GeneratorColor, Callback = function(color) KYS_ESPState.GeneratorColor = color end })
         worldSection:AddColorPicker({ Name = "Hook Color", Flag = "KYS Hook Color", Default = KYS_ESPState.HookColor, Callback = function(color) KYS_ESPState.HookColor = color end })
         worldSection:AddColorPicker({ Name = "Gate Color", Flag = "KYS Gate Color", Default = KYS_ESPState.GateColor, Callback = function(color) KYS_ESPState.GateColor = color end })
-        worldSection:AddColorPicker({ Name = "Window Color", Flag = "KYS Window Color", Default = KYS_ESPState.WindowColor, Callback = function(color) KYS_ESPState.WindowColor = color end })
+        worldSection:AddColorPicker({ Name = "Window Color", Flag = "KYS Window Color", Default = KYS_ESPState.WindowColor, Callback = function(color)
+    KYS_ESPState.WindowColor = color
+    VD.ESP_WindowColor = color
+    for _, adorn in pairs(getgenv().KYS_WindowESPObjects) do
+        if adorn and adorn.Parent then
+            pcall(function() adorn.Color3 = color end)
+        end
+    end
+end })
         worldSection:AddColorPicker({ Name = "Pallet Color", Flag = "KYS Pallet Color", Default = KYS_ESPState.PalletColor, Callback = function(color) KYS_ESPState.PalletColor = color end })
         worldSection:AddColorPicker({ Name = "SCP / Zombie Color", Flag = "KYS SCP Zombie Color", Default = KYS_ESPState.SCPZombieColor, Callback = function(color) KYS_ESPState.SCPZombieColor = color end })
     end
